@@ -4,19 +4,49 @@ require_once 'config.php';
 // Handle Actions
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'] ?? '';
-    
+
     if ($action == 'add_pemasukan') {
-        $stmt = $pdo->prepare("INSERT INTO pemasukan (kategori, sumber, jumlah, tanggal, metode_pembayaran, keterangan, status) VALUES (?,?,?,?,?,?,?)");
-        $stmt->execute([$_POST['kategori'], $_POST['sumber'], $_POST['jumlah'], $_POST['tanggal'], $_POST['metode_pembayaran'], $_POST['keterangan'], 'pending']);
-        header("Location: keuangan.php?tab=pemasukan&msg=Pemasukan berhasil ditambahkan");
-        exit;
+        try {
+            $kategori = $_POST['kategori'] ?? 'donasi';
+            $sumber = trim($_POST['sumber'] ?? '');
+            $jumlah = (float)($_POST['jumlah'] ?? 0);
+            $tanggal = $_POST['tanggal'] ?? date('Y-m-d');
+            $metode = $_POST['metode_pembayaran'] ?? 'tunai';
+            $keterangan = trim($_POST['keterangan'] ?? '');
+
+            if ($sumber === '' || $jumlah <= 0) {
+                throw new Exception('Sumber dan jumlah wajib diisi dengan benar.');
+            }
+
+            $stmt = $pdo->prepare("INSERT INTO pemasukan (kategori, sumber, jumlah, tanggal, metode_pembayaran, keterangan, status) VALUES (?,?,?,?,?,?,?)");
+            $stmt->execute([$kategori, $sumber, $jumlah, $tanggal, $metode, $keterangan !== '' ? $keterangan : null, 'pending']);
+            app_redirect('keuangan.php?tab=pemasukan&msg=' . urlencode('Pemasukan berhasil ditambahkan'));
+        } catch (Throwable $e) {
+            error_log('add_pemasukan: ' . $e->getMessage());
+            app_redirect('keuangan.php?tab=pemasukan&err=' . urlencode('Gagal menyimpan: ' . $e->getMessage()));
+        }
     }
-    
+
     if ($action == 'add_pengeluaran') {
-        $stmt = $pdo->prepare("INSERT INTO pengeluaran (kategori, program_id, nama_program, jumlah, tanggal, metode_pembayaran, vendor, keterangan, status) VALUES (?,?,?,?,?,?,?,?,?)");
-        $stmt->execute([$_POST['kategori'], $_POST['program_id'], $_POST['nama_program'], $_POST['jumlah'], $_POST['tanggal'], $_POST['metode_pembayaran'], $_POST['vendor'], $_POST['keterangan'], 'draft']);
-        header("Location: keuangan.php?tab=pengeluaran&msg=Pengeluaran berhasil ditambahkan");
-        exit;
+        try {
+            $programId = !empty($_POST['program_id']) ? (int)$_POST['program_id'] : null;
+            $stmt = $pdo->prepare("INSERT INTO pengeluaran (kategori, program_id, nama_program, jumlah, tanggal, metode_pembayaran, vendor, keterangan, status) VALUES (?,?,?,?,?,?,?,?,?)");
+            $stmt->execute([
+                $_POST['kategori'] ?? 'operasional',
+                $programId,
+                trim($_POST['nama_program'] ?? '') ?: null,
+                (float)($_POST['jumlah'] ?? 0),
+                $_POST['tanggal'] ?? date('Y-m-d'),
+                $_POST['metode_pembayaran'] ?? 'tunai',
+                trim($_POST['vendor'] ?? '') ?: null,
+                trim($_POST['keterangan'] ?? '') ?: null,
+                'draft',
+            ]);
+            app_redirect('keuangan.php?tab=pengeluaran&msg=' . urlencode('Pengeluaran berhasil ditambahkan'));
+        } catch (Throwable $e) {
+            error_log('add_pengeluaran: ' . $e->getMessage());
+            app_redirect('keuangan.php?tab=pengeluaran&err=' . urlencode('Gagal menyimpan: ' . $e->getMessage()));
+        }
     }
 }
 
@@ -48,6 +78,9 @@ $pengeluaran_bulan = $pdo->query("SELECT SUM(jumlah) FROM pengeluaran WHERE MONT
     
     <?php if(isset($_GET['msg'])): ?>
     <div class="alert alert-success"><?= htmlspecialchars($_GET['msg']) ?></div>
+    <?php endif; ?>
+    <?php if(!empty($_GET['err'])): ?>
+    <div class="alert alert-error"><?= htmlspecialchars($_GET['err']) ?></div>
     <?php endif; ?>
     
     <div class="tabs">

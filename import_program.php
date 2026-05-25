@@ -54,20 +54,17 @@ if (isset($_GET['template'])) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    header('Location: program.php?err=' . urlencode('Metode tidak valid'));
-    exit;
+    app_redirect('program.php?err=' . urlencode('Metode tidak valid'));
 }
 
 if (empty($_FILES['file_import']['tmp_name']) || !is_uploaded_file($_FILES['file_import']['tmp_name'])) {
-    header('Location: program.php?err=' . urlencode('Pilih file CSV atau Excel (.xls) terlebih dahulu.'));
-    exit;
+    app_redirect('program.php?err=' . urlencode('Pilih file CSV atau Excel (.xls) terlebih dahulu.'));
 }
 
 $name = $_FILES['file_import']['name'] ?? '';
 $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
 if (!in_array($ext, ['csv', 'xls', 'xlsx'], true)) {
-    header('Location: program.php?err=' . urlencode('Format file harus .csv, .xls, atau .xlsx'));
-    exit;
+    app_redirect('program.php?err=' . urlencode('Format file harus .csv, .xls, atau .xlsx'));
 }
 
 try {
@@ -78,9 +75,7 @@ try {
         program_csr_insert_import($pdo, $p);
         $ok++;
     }
-    header('Location: program.php?msg=' . urlencode("Berhasil mengimpor $ok program dari file."));
-    exit;
+    app_redirect('program.php?msg=' . urlencode("Berhasil mengimpor $ok program dari file."));
 } catch (Exception $e) {
-    header('Location: program.php?err=' . urlencode('Impor gagal: ' . $e->getMessage()));
-    exit;
+    app_redirect('program.php?err=' . urlencode('Impor gagal: ' . $e->getMessage()));
 }

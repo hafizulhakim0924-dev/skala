@@ -83,10 +83,16 @@ function pengajuan_dana_status_label($status) {
     return $map[$status] ?? $status;
 }
 
-pengajuan_dana_ensure_tables($pdo);
+$setup_error = null;
+try {
+    pengajuan_dana_ensure_tables($pdo);
+} catch (Throwable $e) {
+    error_log('pengajuan_dana_ensure_tables: ' . $e->getMessage());
+    $setup_error = 'Tabel pengajuan dana gagal dibuat: ' . $e->getMessage();
+}
 
 $view_id = isset($_GET['view']) ? (int)$_GET['view'] : 0;
-$error_msg = isset($_GET['err']) ? (string)$_GET['err'] : null;
+$error_msg = isset($_GET['err']) ? (string)$_GET['err'] : $setup_error;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -140,14 +146,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             pengajuan_dana_init_approvals($pdo, $pid);
             $pdo->commit();
 
-            header('Location: approval_pengajuan.php?view=' . $pid . '&msg=' . urlencode('Pengajuan dana berhasil dibuat.'));
-            exit;
-        } catch (Exception $e) {
+            app_redirect('approval_pengajuan.php?view=' . $pid . '&msg=' . urlencode('Pengajuan dana berhasil dibuat.'));
+        } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            header('Location: approval_pengajuan.php?err=' . urlencode($e->getMessage()));
-            exit;
+            error_log('add_pengajuan: ' . $e->getMessage());
+            app_redirect('approval_pengajuan.php?err=' . urlencode($e->getMessage()));
         }
     }
 
@@ -188,14 +193,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $pdo->commit();
 
-            header('Location: approval_pengajuan.php?view=' . $pid . '&msg=' . urlencode('Approval level ' . $labels[$level]['label'] . ' berhasil disimpan.'));
-            exit;
-        } catch (Exception $e) {
+            app_redirect('approval_pengajuan.php?view=' . $pid . '&msg=' . urlencode('Approval level ' . $labels[$level]['label'] . ' berhasil disimpan.'));
+        } catch (Throwable $e) {
             if ($pdo->inTransaction()) {
                 $pdo->rollBack();
             }
-            header('Location: approval_pengajuan.php?view=' . (int)($_POST['pengajuan_id'] ?? 0) . '&err=' . urlencode($e->getMessage()));
-            exit;
+            error_log('approve_level: ' . $e->getMessage());
+            $back = (int)($_POST['pengajuan_id'] ?? 0);
+            $url = $back > 0
+                ? 'approval_pengajuan.php?view=' . $back . '&err=' . urlencode($e->getMessage())
+                : 'approval_pengajuan.php?err=' . urlencode($e->getMessage());
+            app_redirect($url);
         }
     }
 }

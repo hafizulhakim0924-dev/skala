@@ -185,13 +185,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $insertRow['progress'] = 0;
             }
             program_csr_insert_dynamic($pdo, $insertRow);
-            @ob_end_clean();
-            header('Location: program.php?tab=peta&msg=' . rawurlencode('Program ditambahkan dari peta'));
-            exit;
+            app_redirect('program.php?tab=peta&msg=' . rawurlencode('Program ditambahkan dari peta'));
         } catch (Exception $e) {
-            @ob_end_clean();
-            header('Location: program.php?tab=peta&err=' . rawurlencode($e->getMessage()));
-            exit;
+            app_redirect('program.php?tab=peta&err=' . rawurlencode($e->getMessage()));
         }
     }
     
@@ -201,9 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $includeGeo = $geo['lat'] && $geo['lng'];
             $row = program_csr_row_from_post($pdo, $_POST, $includeGeo);
             program_csr_insert_dynamic($pdo, $row);
-            @ob_end_clean();
-            header('Location: program.php?msg=' . rawurlencode('Program berhasil ditambahkan'));
-            exit;
+            app_redirect('program.php?msg=' . rawurlencode('Program berhasil ditambahkan'));
         } catch(PDOException $e) {
             $error_msg = "Error: " . $e->getMessage();
         }
@@ -219,9 +213,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $includeGeo = $geo['lat'] && $geo['lng'];
             $row = program_csr_row_from_post($pdo, $_POST, $includeGeo);
             program_csr_update_dynamic($pdo, $id, $row);
-            @ob_end_clean();
-            header('Location: program.php?msg=' . rawurlencode('Program berhasil diupdate'));
-            exit;
+            app_redirect('program.php?msg=' . rawurlencode('Program berhasil diupdate'));
         } catch(PDOException $e) {
             $error_msg = "Error: " . $e->getMessage();
         }
@@ -232,9 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $id = $_POST['id'] ?? 0;
             $stmt = $pdo->prepare("DELETE FROM program_csr WHERE id=?");
             $stmt->execute([$id]);
-            @ob_end_clean();
-            header("Location: program.php?msg=Program berhasil dihapus");
-            exit;
+            app_redirect('program.php?msg=' . urlencode('Program berhasil dihapus'));
         } catch(PDOException $e) {
             $error_msg = "Error: " . $e->getMessage();
         }

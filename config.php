@@ -1,4 +1,9 @@
 <?php
+/* Buffer output agar header(Location) tidak gagal (halaman putih setelah simpan) */
+if (!ob_get_level()) {
+    ob_start();
+}
+
 /* =========================
    DATABASE CONFIG
 ========================= */
@@ -21,6 +26,15 @@ try {
 // Helper Functions
 function formatRupiah($angka) {
     return 'Rp ' . number_format($angka ?? 0, 0, ',', '.');
+}
+
+/** Redirect aman setelah POST — bersihkan buffer dulu */
+function app_redirect($url) {
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    header('Location: ' . $url);
+    exit;
 }
 
 function getNavMenu($current = '') {
@@ -174,5 +188,4 @@ function getGlobalUiEnhancer() {
 })();
 </script>';
 }
-?>
 
