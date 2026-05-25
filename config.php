@@ -32,6 +32,7 @@ function getNavMenu($current = '') {
         'donatur.php' => ['icon' => '🤝', 'label' => 'Donatur'],
         'klasifikasi_donatur.php' => ['icon' => '🏷️', 'label' => 'Klasifikasi'],
         'donasi.php' => ['icon' => '💵', 'label' => 'Donasi'],
+        'approval_pengajuan.php' => ['icon' => '✅', 'label' => 'Approval Dana'],
         'program.php' => ['icon' => '📋', 'label' => 'Program'],
     ];
     

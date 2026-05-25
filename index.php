@@ -1,5 +1,9 @@
 <?php
 require_once 'config.php';
+require_once __DIR__ . '/lib/program_map.php';
+
+$map_pins = program_map_fetch_pins($pdo);
+$dashboard_map_count = count($map_pins);
 
 /* =========================
    TOTAL DONASI
@@ -55,7 +59,19 @@ $trend = $pdo->query("
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <?= getCssLink() ?>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    #mapDashboardIndonesia {
+        height: 420px;
+        width: 100%;
+        min-height: 280px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        background: #e8eef5;
+    }
+    #mapDashboardIndonesia .leaflet-container { height: 100%; width: 100%; }
+</style>
 </head>
 <body>
 
@@ -189,6 +205,20 @@ $daily_total = $pdo->query("
         </div>
     </div>
 
+    <div class="card" data-dash="map_program">
+        <div class="card-header">
+            <h3 style="margin:0">🗺️ Peta Program CSR</h3>
+            <a href="program.php?tab=peta" class="btn btn-sm">Kelola peta →</a>
+        </div>
+        <p style="font-size:12px;color:var(--light-text);margin-bottom:10px">
+            <?= $dashboard_map_count ?> titik program di Indonesia. Klik pin untuk detail.
+        </p>
+        <div id="mapDashboardIndonesia"></div>
+        <?php if ($dashboard_map_count === 0): ?>
+        <p style="margin-top:12px;color:var(--light-text)">Belum ada data peta. Tambah program dengan kolom kota atau koordinat di halaman Program.</p>
+        <?php endif; ?>
+    </div>
+
     <div class="card" data-dash="table_daily_movement">
         <div class="card-header">
             <h3>📊 Tabel Pergerakan Donasi Harian (30 Hari Terakhir)</h3>
@@ -266,7 +296,8 @@ $daily_total = $pdo->query("
         table_daily_movement: 'Tabel pergerakan donasi harian (30 hari)',
         chart_daily: 'Chart donasi harian (30 hari)',
         chart_monthly: 'Chart donasi bulanan (12 bulan)',
-        chart_comparison: 'Chart perbandingan harian vs bulanan'
+        chart_comparison: 'Chart perbandingan harian vs bulanan',
+        map_program: 'Peta program CSR (Indonesia)'
     };
     const keys = Object.keys(LABELS);
 
@@ -440,6 +471,65 @@ new Chart(document.getElementById('comparisonChart'), {
     }
 });
 }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<script>
+(function() {
+    if (!sectionVisible('map_program')) return;
+    var pins = <?= json_encode($map_pins, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    function esc(s) {
+        if (!s) return '';
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+    function makeProgramPinIcon(n) {
+        var num = Math.max(1, parseInt(n, 10) || 1);
+        var badge = '<span class="rpn-map-pin-badge">' + (num > 99 ? '99+' : num) + '</span>';
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 48" width="34" height="46"><path fill="#ff7a00" stroke="#c55a00" stroke-width="1.2" d="M18 2C10.3 2 4 8.3 4 16c0 11.5 11.2 24.5 13.3 27 0.4 0.5 1 0.5 1.4 0C20.8 40.5 32 27.5 32 16 32 8.3 25.7 2 18 2z"/><circle fill="#fff" cx="18" cy="16" r="5.5"/><circle fill="#ff7a00" cx="18" cy="16" r="2.2"/></svg>';
+        return L.divIcon({ className: 'rpn-map-pin-outer', html: '<div class="rpn-map-pin">' + svg + badge + '</div>', iconSize: [36, 48], iconAnchor: [18, 48], popupAnchor: [0, -46] });
+    }
+    function initDashboardMap() {
+        var el = document.getElementById('mapDashboardIndonesia');
+        if (!el || typeof L === 'undefined') {
+            if (el) el.innerHTML = '<p style="padding:24px;color:#c00">Peta gagal dimuat. Periksa koneksi internet (CDN Leaflet).</p>';
+            return;
+        }
+        var map = L.map(el).setView([-2.5, 118.0], 5);
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+        var bounds = [];
+        (pins || []).forEach(function(p) {
+            var lat = parseFloat(p.lat), lng = parseFloat(p.lng);
+            if (isNaN(lat) || isNaN(lng)) return;
+            var mk = L.marker([lat, lng], { icon: makeProgramPinIcon(p.jumlah_program || 1) }).addTo(map);
+            var html = '<div style="min-width:200px">';
+            if (p.nama_program) {
+                html += '<strong>' + esc(p.nama_program) + '</strong>';
+            } else {
+                html += '<strong>' + esc(p.kota || 'Lokasi') + '</strong>';
+                if (p.provinsi) html += '<br><small>' + esc(p.provinsi) + '</small>';
+                html += '<br><b>' + (p.jumlah_program || 0) + '</b> program';
+            }
+            if (p.program_id) {
+                html += '<p style="margin-top:8px"><a href="program.php?view=' + p.program_id + '" class="btn btn-sm">Detail</a></p>';
+            } else if (p.contoh_nama) {
+                html += '<br><small>' + esc(p.contoh_nama) + '</small>';
+                html += '<p style="margin-top:8px"><a href="program.php?tab=peta" class="btn btn-sm">Buka peta</a></p>';
+            }
+            html += '</div>';
+            mk.bindPopup(html);
+            bounds.push([lat, lng]);
+        });
+        if (bounds.length) {
+            try { map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 }); } catch (e) {}
+        }
+        setTimeout(function() { try { map.invalidateSize(true); } catch (e) {} }, 100);
+        setTimeout(function() { try { map.invalidateSize(true); } catch (e) {} }, 500);
+    }
+    if (document.readyState === 'complete') initDashboardMap();
+    else window.addEventListener('load', initDashboardMap);
+})();
 </script>
 
 <script>
